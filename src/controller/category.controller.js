@@ -12,11 +12,7 @@ exports.createCategory = (req,res) => {
         list:[2],
     })
 }
-exports.updateCategory = (req,res)=> {
-    res.json({
-        list:[3]
-    })
-}
+
 exports.deleteCategory =(req,res) => {
     res.json({
         list : [4]
