@@ -39,7 +39,7 @@ app.get("/api/home", (req,res)=> {
 })
 
 require("./src/routes/category.route")(app);
-
+require("./src/routes/auth.route")(app);
 const PORT=8081;
 app.listen(PORT,()=> {
      console.log("http://localhost:" + PORT);  

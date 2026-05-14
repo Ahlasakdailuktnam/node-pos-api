@@ -19,10 +19,19 @@ exports.createCategory = async (req,res) => {
     data: data,
   })
 }
-exports.updateCategory = (req,res)=> {
-    res.json({
-        list:[3]
-    })
+exports.updateCategory = async(req,res)=> {
+    var sql = "UPDATE category SET Name=:Name, Description=:Description, Status=:Status, ParentID=:ParentID WHERE Id=:Id ";
+  var [data] = await db.query(sql , {
+    Id:req.body.Id,
+    Name: req.body.Name,
+    Description: req.body.Description,
+    Status: req.body.Status,
+    ParentID: req.body.ParentID,
+  });
+  res.json({
+    data: data,
+    message: "Update jork jum"
+  })
 }
 exports.deleteCategory = async (req,res) => {
     var sql = "DELETE FROM category WHERE Id=:Id";

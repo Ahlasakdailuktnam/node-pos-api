@@ -1,8 +1,23 @@
-import {getCategory,createCategory,updateCategory,deleteCategory} from "../../src/controller/category.controller"
+const {
+  register,
+  login,
+  getProfile,
+  validate_token
+} = require("../../src/controller/auth.controller");
 
-module.exports = (app ) => {
-    app.get("/api/category", getCategory);
-    app.post("/api/category", createCategory);
-    app.put("/api/category", updateCategory);
-    app.delete("/api/category", deleteCategory);
-}
+module.exports = (app) => {
+
+  // register
+  app.post("/api/auth/register", register);
+
+  // login
+  app.post("/api/auth/login", login);
+
+  // profile
+  app.get(
+    "/api/auth/profile",
+    validate_token(),
+    getProfile
+  );
+
+};
