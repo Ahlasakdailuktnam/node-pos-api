@@ -1,7 +1,7 @@
 const { db } = require("../util/helper");
 const AppError = require("../util/AppError");
 const getAllSuppliers = async () => {
-  const [list] = await db.query("SELECT * FROM supplier ORDER BY id DESC");
+  const [list] = await db.query("SELECT * FROM suppiler ORDER BY id DESC");
   if (list.length === 0) {
     throw new AppError("No supplier found", 404);
   }
@@ -9,14 +9,14 @@ const getAllSuppliers = async () => {
 };
 const createSupplier = async (data, user) => {
   const { name, code, tel, email, address, website, note } = data;
-  const [exist] = await db.query("SELECT id FROM supplier WHERE code=?", [
+  const [exist] = await db.query("SELECT id FROM suppiler WHERE code=?", [
     code,
   ]);
   if (exist.length > 0) {
     throw new AppError("Supplier code already exists", 409);
   }
   const sql = `
-        INSERT INTO supplier
+        INSERT INTO suppiler
         (
             name,
             code,
