@@ -7,6 +7,11 @@ const getAllSuppliers = async () => {
   }
   return list;
 };
+  const deleteSupplier = async(id) => {
+    const [list] = await db.query("DELETE FROM supllier WHERE id=id");
+    return list
+  }
+
 const createSupplier = async (data, user) => {
   const { name, code, tel, email, address, website, note } = data;
   const [exist] = await db.query("SELECT id FROM suppiler WHERE code=?", [
