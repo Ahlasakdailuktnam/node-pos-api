@@ -1,16 +1,23 @@
 const { db } = require("../util/helper");
 const AppError = require("../util/AppError");
-const getAllSuppliers = async () => {
-  const [list] = await db.query("SELECT * FROM suppiler ORDER BY id DESC");
-  if (list.length === 0) {
-    throw new AppError("No supplier found", 404);
+const getAllSuppliers = async (query) => {
+  const { search } = query;
+  let sql = ` SELECT * FROM suppiler`;
+  const params = {};
+  if (search?.trim()) {
+    sql += `
+      WHERE
+        name LIKE :search
+        OR code LIKE :search
+        OR tel LIKE :search
+        OR email LIKE :search
+    `;
+    params.search = `%${search.trim()}%`;
   }
+  sql += ` ORDER BY id DESC`;
+  const [list] = await db.query(sql, params);
   return list;
 };
-  const deleteSupplier = async(id) => {
-    const [list] = await db.query("DELETE FROM supllier WHERE id=id");
-    return list
-  }
 
 const createSupplier = async (data, user) => {
   const { name, code, tel, email, address, website, note } = data;
@@ -57,7 +64,65 @@ const createSupplier = async (data, user) => {
 
   return result.insertId;
 };
+const updateSupplier = async (id, data) => {
+  const { name, code, tel, email, address, website, note } = data;
+
+  // Check supplier exists
+  const [supplier] = await db.query("SELECT id FROM supplier WHERE id=?", [id]);
+
+  if (supplier.length === 0) {
+    throw new AppError("Supplier not found", 404);
+  }
+
+  // Check duplicate code (except current supplier)
+  const [exist] = await db.query(
+    `
+    SELECT id
+    FROM supplier
+    WHERE code = ?
+      AND id <> ?
+    `,
+    [code, id],
+  );
+  if (exist.length > 0) {
+    throw new AppError("Supplier code already exists", 409);
+  }
+  const sql = `
+    UPDATE supplier
+    SET
+      name = :name,
+      code = :code,
+      tel = :tel,
+      email = :email,
+      address = :address,
+      website = :website,
+      note = :note
+    WHERE id = :id
+  `;
+
+  await db.query(sql, {
+    id,
+    name,
+    code,
+    tel,
+    email,
+    address,
+    website,
+    note,
+  });
+};
+const deleteSupplier = async (id) => {
+  const [supplier] = await db.query("SELECT id FROM supplier WHERE id=?", [id]);
+
+  if (supplier.length === 0) {
+    throw new AppError("Supplier not found", 404);
+  }
+
+  await db.query("DELETE FROM supplier WHERE id=?", [id]);
+};
 module.exports = {
   getAllSuppliers,
+  deleteSupplier,
+  updateSupplier,
   createSupplier,
 };

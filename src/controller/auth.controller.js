@@ -166,7 +166,7 @@ const getAccessToken = async (user) => {
     username: user.username,
   };
 
-  const access_token = jwt.sign({ data: data }, keyToken, { expiresIn: "1h" });
+  const access_token = jwt.sign({ data: data }, keyToken, { expiresIn: "7d" });
 
   return access_token;
 };
