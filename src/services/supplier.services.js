@@ -68,7 +68,7 @@ const updateSupplier = async (id, data) => {
   const { name, code, tel, email, address, website, note } = data;
 
   // Check supplier exists
-  const [supplier] = await db.query("SELECT id FROM supplier WHERE id=?", [id]);
+  const [supplier] = await db.query("SELECT id FROM suppiler WHERE id=?",[id]);
 
   if (supplier.length === 0) {
     throw new AppError("Supplier not found", 404);
@@ -78,7 +78,7 @@ const updateSupplier = async (id, data) => {
   const [exist] = await db.query(
     `
     SELECT id
-    FROM supplier
+    FROM suppiler
     WHERE code = ?
       AND id <> ?
     `,
@@ -88,7 +88,7 @@ const updateSupplier = async (id, data) => {
     throw new AppError("Supplier code already exists", 409);
   }
   const sql = `
-    UPDATE supplier
+    UPDATE suppiler
     SET
       name = :name,
       code = :code,
@@ -112,13 +112,13 @@ const updateSupplier = async (id, data) => {
   });
 };
 const deleteSupplier = async (id) => {
-  const [supplier] = await db.query("SELECT id FROM supplier WHERE id=?", [id]);
+  const [supplier] = await db.query("SELECT id FROM suppiler WHERE id=?",[id]);
 
   if (supplier.length === 0) {
     throw new AppError("Supplier not found", 404);
   }
 
-  await db.query("DELETE FROM supplier WHERE id=?", [id]);
+  await db.query("DELETE FROM suppiler WHERE id=?", [id]);
 };
 module.exports = {
   getAllSuppliers,

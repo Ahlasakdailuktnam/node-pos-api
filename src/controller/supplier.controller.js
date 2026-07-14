@@ -8,7 +8,7 @@ exports.getSupplier = asyncHandler(async (req, res) => {
   });
 });
 exports.createSupplier = asyncHandler(async (req, res) => {
-  const id = await supplierService.createSupplier(req.body, req.auth?.name);
+  const id = await supplierService.createSupplier(req.body, req.current_name);
   res.status(201).json({
     success: true,
     message: "Supplier created successfully",
@@ -16,7 +16,7 @@ exports.createSupplier = asyncHandler(async (req, res) => {
   });
 });
 exports.updateSupplier = asyncHandler(async (req, res) => {
-  await supplierService.updateSupplier(req.body.id, req.body);
+  await supplierService.updateSupplier(req.params.id, req.body);
   res.json({
     success: true,
     message: "Supplier updated successfully",
