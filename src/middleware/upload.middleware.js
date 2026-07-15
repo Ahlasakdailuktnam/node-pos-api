@@ -1,6 +1,6 @@
 const multer = require("multer");
 const path = require("path");
-const AppError = require("../utils/AppError");
+const AppError = require("../util/AppError");
 const MAX_FILE_SIZE = 3 * 1024 * 1024; 
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 // Create storage dynamically

@@ -7,7 +7,7 @@ const {
 const {validate_token} = require("../controller/auth.controller")
 module.exports = (app) => {
   app.get("/api/category", validate_token(), getCategory);
-  app.post("/api/category", createCategory);
-  app.put("/api/category", updateCategory);
-  app.delete("/api/category", deleteCategory);
+  app.post("/api/category",validate_token(), createCategory);
+  app.put("/api/category",validate_token(), updateCategory);
+  app.delete("/api/category",validate_token(), deleteCategory);
 };  

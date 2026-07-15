@@ -1,5 +1,5 @@
 const asyncHandler = require("../middleware/asyncHandler");
-const supplierService = require("../services/supplier.services");
+const supplierService = require("../services/supplier.service");
 exports.getSupplier = asyncHandler(async (req, res) => {
   const suppliers = await supplierService.getAllSuppliers(req.query);
   res.json({
