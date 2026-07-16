@@ -25,7 +25,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
     ...req.body,
     image: req.file ? req.file.filename : null,
   };
-   const id = await productService.createProduct(data);
+  const id = await productService.createProduct(data,req.current_name);
   res.status(201).json({
     success: true,
     id,
@@ -54,5 +54,12 @@ exports.deleteProduct = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: "Product deleted",
+  });
+});
+exports.generateProductBarcode = asyncHandler(async (req, res) => {
+  const barcode = await productService.generateBarcode();
+  res.json({
+    success: true,
+    barcode,
   });
 });

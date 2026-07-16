@@ -20,7 +20,7 @@ const getAllSuppliers = async (query) => {
 };
 
 const createSupplier = async (data, user) => {
-  const { name, code, tel, email, address, website, note } = data;
+  const { name, code, tel, email, address, website, note } = data; //desturcturing when write this it equal const name=name.data, ......
   const [exist] = await db.query("SELECT id FROM suppiler WHERE code=?", [
     code,
   ]);
@@ -51,7 +51,7 @@ const createSupplier = async (data, user) => {
             :create_by
         )
     `;
-  const [result] = await db.query(sql, {
+  const [result] = await db.query(sql, {   //Object Property Shorthand
     name,
     code,
     tel,

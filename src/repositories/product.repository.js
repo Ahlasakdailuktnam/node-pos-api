@@ -32,36 +32,52 @@ exports.getById = async (id) => {
 };
 // Create Product
 exports.create = async (data) => {
+
   const sql = `
     INSERT INTO product
     (
-        category_id,
-        barcode,
-        name,
-        brand,
-        description,
-        qty,
-        price,
-        discount,
-        status,
-        image,
-        create_by
+      category_id,
+      barcode,
+      name,
+      brand,
+      description,
+      qty,
+      price,
+      discount,
+      status,
+      image,
+      create_by
     )
-    VALUES(?,?,?,?,?,?,?,?,?,?,?)
-    `;
-  const [result] = await db.query(sql, [
-    data.category_id,
-    data.barcode,
-    data.name,
-    data.brand,
-    data.description,
-    data.qty,
-    data.price,
-    data.discount,
-    data.status,
-    data.image,
-    data.create_by,
-  ]);
+    VALUES
+    (
+      :category_id,
+      :barcode,
+      :name,
+      :brand,
+      :description,
+      :qty,
+      :price,
+      :discount,
+      :status,
+      :image,
+      :create_by
+    )
+  `;
+
+  const [result] = await db.query(sql, {
+    category_id: data.category_id,
+    barcode: data.barcode,
+    name: data.name,
+    brand: data.brand,
+    description: data.description,
+    qty: data.qty,
+    price: data.price,
+    discount: data.discount,
+    status: data.status,
+    image: data.image,
+    create_by: data.create_by,
+  });
+
   return result.insertId;
 };
 // Update Product
@@ -95,7 +111,23 @@ exports.update = async (id, data) => {
   ]);
   return result.affectedRows;
 };
-
+// Generate next barcode number
+exports.getLastBarcodeNumber = async () => {
+  const [rows] = await db.query(`
+    SELECT barcode
+    FROM product
+    WHERE barcode IS NOT NULL
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+  if (rows.length === 0) {
+    return 0;
+  }
+  const lastBarcode = rows[0].barcode;
+  // BAR-000001 => 1
+  const number = parseInt(lastBarcode.replace("BAR-", ""));
+  return number || 0;
+};
 // Delete
 exports.remove = async (id) => {
   const [result] = await db.query(
