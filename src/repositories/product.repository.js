@@ -1,23 +1,95 @@
 const { db } = require("../util/helper");
-exports.getAll = async (search = "") => {
-  let sql = `
+exports.getAll = async (filter) => {
+  const {
+    search = "",
+    page = 1,
+    limit = 10,
+    category_id,
+    status,
+    stock_status,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+
+  let whereClause = "WHERE 1=1";
+  const queryParams = [];
+
+  // Search by name, brand, barcode
+  if (search && search.trim() !== "") {
+    whereClause += `
+      AND (
+        p.name LIKE ?
+        OR p.brand LIKE ?
+        OR p.barcode LIKE ?
+      )
+    `;
+    const searchWildcard = `%${search}%`;
+    queryParams.push(searchWildcard, searchWildcard, searchWildcard);
+  }
+
+  // Filter by category
+  if (category_id) {
+    whereClause += ` AND p.category_id = ?`;
+    queryParams.push(category_id);
+  }
+
+  // Filter by product status
+  if (status !== undefined && status !== "") {
+    whereClause += ` AND p.status = ?`;
+    queryParams.push(status);
+  }
+
+  // Filter by stock status
+  if (stock_status) {
+    if (stock_status === "out_of_stock") {
+      whereClause += ` AND p.qty = 0`;
+    } else if (stock_status === "low_stock") {
+      whereClause += ` AND p.qty > 0 AND p.qty <= 5`;
+    } else if (stock_status === "in_stock") {
+      whereClause += ` AND p.qty > 5`;
+    }
+  }
+
+  // 📌 Get total count for pagination
+  const countSql = `
+    SELECT COUNT(*) as total
+    FROM product p
+    INNER JOIN category c ON p.category_id = c.id
+    ${whereClause}
+  `;
+
+  const [countResult] = await db.query(countSql, queryParams);
+  const total = countResult[0]?.total || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  // 📌 Get paginated data
+  const dataSql = `
     SELECT 
       p.*,
       c.name AS category_name
     FROM product p
-    INNER JOIN category c 
-    ON p.category_id = c.id
+    INNER JOIN category c ON p.category_id = c.id
+    ${whereClause}
+    ORDER BY p.id DESC
+    LIMIT ? OFFSET ?
   `;
-  const queryParams = [];
-  if (search && search.trim() !== "") {
-    sql += ` WHERE p.name LIKE ? OR p.brand LIKE ? OR p.barcode LIKE ?`;
-    const searchWildcard = `%${search}%`;
-    queryParams.push(searchWildcard, searchWildcard, searchWildcard);
-  }
-  sql += ` ORDER BY p.id DESC`;
-  const [rows] = await db.query(sql, queryParams);
-  return rows;
+
+  // Add limit and offset to query params
+  const dataParams = [...queryParams, Number(limit), Number(offset)];
+  const [rows] = await db.query(dataSql, dataParams);
+
+  return {
+    data: rows,
+    pagination: {
+      total,
+      totalPages,
+      currentPage: Number(page),
+      limit: Number(limit),
+    },
+  };
 };
+
 // Get Product By ID
 exports.getById = async (id) => {
   const [rows] = await db.query(
@@ -31,8 +103,20 @@ exports.getById = async (id) => {
   return rows[0];
 };
 // Create Product
-exports.create = async (data) => {
-
+exports.create = async (data, user) => {
+  const {
+    category_id,
+    barcode,
+    name,
+    brand,
+    description,
+    qty,
+    price,
+    discount,
+    status,
+    image,
+    create_by,
+  } = data;
   const sql = `
     INSERT INTO product
     (
@@ -65,17 +149,17 @@ exports.create = async (data) => {
   `;
 
   const [result] = await db.query(sql, {
-    category_id: data.category_id,
-    barcode: data.barcode,
-    name: data.name,
-    brand: data.brand,
-    description: data.description,
-    qty: data.qty,
-    price: data.price,
-    discount: data.discount,
-    status: data.status,
-    image: data.image,
-    create_by: data.create_by,
+    category_id,
+    barcode,
+    name,
+    brand,
+    description,
+    qty,
+    price,
+    discount,
+    status,
+    image,
+    create_by: user,
   });
 
   return result.insertId;

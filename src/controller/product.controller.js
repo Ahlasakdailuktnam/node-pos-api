@@ -3,11 +3,21 @@ const productService = require("../services/product.service");
 const asyncHandler = require("../middleware/asyncHandler");
 
 exports.getProducts = asyncHandler(async (req, res) => {
-  const search = req.query.search || "";
-  const data = await productService.getProducts(search);
+  const filter = {
+    search: req.query.search || "",
+    page: Number(req.query.page) || 1,
+    limit: Number(req.query.limit) || 10,
+    category_id: req.query.category_id || "",
+    status: req.query.status || "",
+    stock_status: req.query.stock_status || "",
+  };
+  
+  const result = await productService.getProducts(filter);
+  
   res.json({
     success: true,
-    data,
+    data: result.data,
+    pagination: result.pagination,
   });
 });
 
@@ -25,7 +35,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
     ...req.body,
     image: req.file ? req.file.filename : null,
   };
-  const id = await productService.createProduct(data,req.current_name);
+  const id = await productService.createProduct(data, req.current_name);
   res.status(201).json({
     success: true,
     id,

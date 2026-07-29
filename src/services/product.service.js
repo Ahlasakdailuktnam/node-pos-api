@@ -3,8 +3,8 @@ const path = require("path");
 const productRepository = require("../repositories/product.repository");
 const AppError = require("../util/AppError");
 
-exports.getProducts = async (search = "") => {
-  return await productRepository.getAll(search);
+exports.getProducts = async (filter) => {
+  return await productRepository.getAll(filter);
 };
 
 exports.getProductById = async (id) => {
@@ -15,8 +15,8 @@ exports.getProductById = async (id) => {
   return product;
 };
 
-exports.createProduct = async (data) => {
-  return await productRepository.create(data);
+exports.createProduct = async (data,user) => {
+  return await productRepository.create(data,user);
 };
 
 exports.updateProduct = async (id, data) => {
