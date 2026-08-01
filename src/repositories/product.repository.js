@@ -8,14 +8,10 @@ exports.getAll = async (filter) => {
     status,
     stock_status,
   } = filter;
-
   const offset = (page - 1) * limit;
-
-
   let whereClause = "WHERE 1=1";
   const queryParams = [];
-
-  // Search by name, brand, barcode
+  // search by name, brand, barcode
   if (search && search.trim() !== "") {
     whereClause += `
       AND (
@@ -27,14 +23,13 @@ exports.getAll = async (filter) => {
     const searchWildcard = `%${search}%`;
     queryParams.push(searchWildcard, searchWildcard, searchWildcard);
   }
-
-  // Filter by category
+  // filter by category
   if (category_id) {
     whereClause += ` AND p.category_id = ?`;
     queryParams.push(category_id);
   }
 
-  // Filter by product status
+  // filter by product status
   if (status !== undefined && status !== "") {
     whereClause += ` AND p.status = ?`;
     queryParams.push(status);
@@ -63,7 +58,7 @@ exports.getAll = async (filter) => {
   const total = countResult[0]?.total || 0;
   const totalPages = Math.ceil(total / limit);
 
-  // 📌 Get paginated data
+  //  Get paginated data
   const dataSql = `
     SELECT 
       p.*,

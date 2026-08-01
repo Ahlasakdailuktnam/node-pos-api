@@ -11,9 +11,8 @@ exports.getProducts = asyncHandler(async (req, res) => {
     status: req.query.status || "",
     stock_status: req.query.stock_status || "",
   };
-  
+
   const result = await productService.getProducts(filter);
-  
   res.json({
     success: true,
     data: result.data,
