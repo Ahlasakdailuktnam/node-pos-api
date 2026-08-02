@@ -206,6 +206,7 @@ exports.validate_token = () => {
       }
 
       // save user data in request
+      req.user = result;
       req.current_id = result.data.id;
       req.current_name = result.data.name;
       req.current_username = result.data.username;
