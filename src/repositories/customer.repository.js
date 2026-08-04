@@ -32,6 +32,199 @@ exports.getAll = async (filter = {}) => {
         ORDER BY id DESC
     `;
   const [rows] = await db.query(sql, queryParams);
-
   return rows;
+};
+
+exports.create = async (data, user) => {
+  // Check if phone number already exists
+  if (data.tel && data.tel.trim() !== "") {
+    const [existing] = await db.query(
+      `
+      SELECT id FROM customer WHERE tel = ?
+      `,
+      [data.tel],
+    );
+
+    if (existing.length > 0) {
+      throw new Error(`Phone number "${data.tel}" already exists`);
+    }
+  }
+
+  // Check if email already exists
+  if (data.email && data.email.trim() !== "") {
+    const [existing] = await db.query(
+      `
+      SELECT id FROM customer WHERE email = ?
+      `,
+      [data.email],
+    );
+
+    if (existing.length > 0) {
+      throw new Error(`Email "${data.email}" already exists`);
+    }
+  }
+
+  const sql = `
+    INSERT INTO customer
+    (
+      name,
+      tel,
+      email,
+      address,
+      type,
+      total_spent,
+      discount,
+      create_by
+    )
+    VALUES
+    (
+      :name,
+      :tel,
+      :email,
+      :address,
+      :type,
+      0,
+      :discount,
+      :create_by
+    )
+  `;
+  const [result] = await db.query(sql, {
+    name: data.name,
+    tel: data.tel || null,
+    email: data.email || null,
+    address: data.address || null,
+    type: data.type || "regular",
+    discount: data.discount || 0,
+    create_by: user.id,
+  });
+  // Get created customer
+  const [rows] = await db.query(
+    `
+      SELECT *
+      FROM customer
+      WHERE id = ?
+    `,
+    [result.insertId],
+  );
+  return rows[0];
+};
+
+// Get customer by id
+exports.getById = async (id) => {
+  const [rows] = await db.query(
+    `
+      SELECT *
+      FROM customer
+      WHERE id = ?
+    `,
+    [id],
+  );
+
+  return rows[0];
+};
+
+// Update total spent
+exports.updateTotalSpent = async (id, amount) => {
+  await db.query(
+    `
+      UPDATE customer
+      SET total_spent = total_spent + ?
+      WHERE id = ?
+    `,
+    [amount, id],
+  );
+};
+
+// Update membership type
+exports.updateType = async (id, type) => {
+  await db.query(
+    `
+      UPDATE customer
+      SET type = ?
+      WHERE id = ?
+    `,
+    [type, id],
+  );
+};
+
+exports.updateDiscount = async (id, discount) => {
+  await db.query(
+    `
+    UPDATE customer
+    SET discount = ?
+    WHERE id = ?
+    `,
+    [discount, id],
+  );
+};
+
+// ✅ NEW: Update customer with duplicate check
+exports.update = async (id, data) => {
+  // Check if phone number already exists for another customer
+  if (data.tel && data.tel.trim() !== "") {
+    const [existing] = await db.query(
+      `
+      SELECT id FROM customer WHERE tel = ? AND id != ?
+      `,
+      [data.tel, id],
+    );
+
+    if (existing.length > 0) {
+      throw new Error(
+        `Phone number "${data.tel}" already exists for another customer`,
+      );
+    }
+  }
+
+  // Check if email already exists for another customer
+  if (data.email && data.email.trim() !== "") {
+    const [existing] = await db.query(
+      `
+      SELECT id FROM customer WHERE email = ? AND id != ?
+      `,
+      [data.email, id],
+    );
+
+    if (existing.length > 0) {
+      throw new Error(
+        `Email "${data.email}" already exists for another customer`,
+      );
+    }
+  }
+
+  const sql = `
+    UPDATE customer
+    SET
+      name = :name,
+      tel = :tel,
+      email = :email,
+      address = :address,
+      type = :type,
+      discount = :discount
+    WHERE id = :id
+  `;
+
+  await db.query(sql, {
+    id: id,
+    name: data.name,
+    tel: data.tel || null,
+    email: data.email || null,
+    address: data.address || null,
+    type: data.type || "regular",
+    discount: data.discount || 0,
+  });
+
+  // Get updated customer
+  return await exports.getById(id);
+};
+
+// Delete customer
+exports.delete = async (id) => {
+  await db.query(
+    `
+      DELETE FROM customer
+      WHERE id = ?
+    `,
+    [id],
+  );
 };

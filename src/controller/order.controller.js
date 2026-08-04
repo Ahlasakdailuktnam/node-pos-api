@@ -8,9 +8,12 @@ exports.create = asyncHandler(async (req, res) => {
     data: result,
   });
 });
+// order.controller.js
 exports.getAll = asyncHandler(async (req, res) => {
   const filter = {
     search: req.query.search || "",
+    page: parseInt(req.query.page) || 1,    // ← បន្ថែម
+    limit: parseInt(req.query.limit) || 10, // ← បន្ថែម
   };
   const data = await orderService.getAll(filter);
   res.json({

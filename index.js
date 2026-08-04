@@ -16,6 +16,9 @@ require("./src/routes/supplier.route")(app);
 require("./src/routes/product.route")(app);
 require("./src/routes/customer.route")(app);
 require("./src/routes/order.route")(app);
+require("./src/routes/expenseType.route")(app);
+require("./src/routes/expense.route")(app);
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use(errorHandler);

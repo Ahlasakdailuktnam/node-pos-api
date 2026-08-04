@@ -1,9 +1,32 @@
 const { db } = require("../util/helper");
+
 exports.create = async (data, user) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
-    // create order number
+
+    let memberDiscount = 0;
+    let customerType = "regular";
+
+    if (data.customer_id) {
+      const [customerRows] = await connection.query(
+        `
+        SELECT discount, type
+        FROM customer
+        WHERE id = ?
+        `,
+        [data.customer_id],
+      );
+
+      if (customerRows.length === 0) {
+        throw new Error("Customer not found");
+      }
+
+      memberDiscount = Number(customerRows[0].discount || 0);
+      customerType = customerRows[0].type || "regular";
+    }
+
+    // Create order number
     const [rows] = await connection.query(`
       SELECT order_no
       FROM orders
@@ -16,87 +39,110 @@ exports.create = async (data, user) => {
       const last = parseInt(rows[0].order_no.replace("ORD-", ""));
       orderNo = `ORD-${String(last + 1).padStart(6, "0")}`;
     }
+
     // Insert order
     const [orderResult] = await connection.query(
       `
-    INSERT INTO orders
-    (
-      order_no,
-      customer_id,
-      user_id,
-      total_amount,
-      paid,
-      payment_method,
-      remark,
-      create_by
-    )
-    VALUES
-    (
-      :order_no,
-      :customer_id,
-      :user_id,
-      :total_amount,
-      :paid,
-      :payment_method,
-      :remark,
-      :create_by
-    )
-    `,
+      INSERT INTO orders
+      (
+        order_no,
+        customer_id,
+        user_id,
+        total_amount,
+        paid,
+        payment_method,
+        remark,
+        create_by
+      )
+      VALUES
+      (
+        :order_no,
+        :customer_id,
+        :user_id,
+        :total_amount,
+        :paid,
+        :payment_method,
+        :remark,
+        :create_by
+      )
+      `,
       {
         order_no: orderNo,
-        customer_id: data.customer_id,
+        customer_id: data.customer_id || null,
         user_id: user.data.id,
-        total_amount: data.total_amount,
+        total_amount: 0,
         paid: data.paid,
         payment_method: data.payment_method,
-        remark: data.remark,
+        remark: data.remark || "",
         create_by: user.data.id,
       },
     );
     const orderId = orderResult.insertId;
+
+    let totalAmount = 0;
+    let totalProductDiscount = 0;
+    let totalMemberDiscount = 0;
+
     for (const item of data.items) {
-      // Insert order detail
+      const subtotal = item.qty * item.price;
+      const productDiscount = parseFloat(item.discount) || 0;
+      const productDiscountAmount = (subtotal * productDiscount) / 100;
+      const afterProductDiscount = subtotal - productDiscountAmount;
+      const memberDiscountAmount = (afterProductDiscount * memberDiscount) / 100;
+      const finalTotal = subtotal - productDiscountAmount - memberDiscountAmount;
+
+      totalAmount += finalTotal;
+      totalProductDiscount += productDiscountAmount;
+      totalMemberDiscount += memberDiscountAmount;
+
       await connection.query(
         `
-    INSERT INTO order_detail
-    (
-      order_id,
-      product_id,
-      qty,
-      price,
-      discount,
-      total
-    )
-    VALUES
-    (
-      :order_id,
-      :product_id,
-      :qty,
-      :price,
-      :discount,
-      :total
-    )
-    `,
+        INSERT INTO order_detail
+        (
+          order_id,
+          product_id,
+          qty,
+          price,
+          discount,
+          member_discount,
+          discount_amount,
+          total
+        )
+        VALUES
+        (
+          :order_id,
+          :product_id,
+          :qty,
+          :price,
+          :discount,
+          :member_discount,
+          :discount_amount,
+          :total
+        )
+        `,
         {
           order_id: orderId,
           product_id: item.product_id,
           qty: item.qty,
           price: item.price,
-          discount: item.discount,
-          total: item.total,
+          discount: productDiscount,
+          member_discount: memberDiscount,
+          discount_amount: productDiscountAmount + memberDiscountAmount,
+          total: finalTotal,
         },
       );
+
       const [product] = await connection.query(
         `
-  SELECT qty
-  FROM product
-  WHERE id = ?
-  `,
+        SELECT qty
+        FROM product
+        WHERE id = ?
+        `,
         [item.product_id],
       );
 
       if (product.length === 0) {
-        throw new Error("Product not found");
+        throw new Error(`Product ${item.product_id} not found`);
       }
 
       if (product[0].qty < item.qty) {
@@ -105,17 +151,76 @@ exports.create = async (data, user) => {
 
       await connection.query(
         `
-    UPDATE product
-    SET qty = qty - ?
-    WHERE id = ?
-    `,
+        UPDATE product
+        SET qty = qty - ?
+        WHERE id = ?
+        `,
         [item.qty, item.product_id],
       );
     }
+
+    // Update orders total_amount
+    await connection.query(
+      `
+      UPDATE orders
+      SET total_amount = ?
+      WHERE id = ?
+      `,
+      [totalAmount, orderId],
+    );
+
+    // Update customer
+    if (data.customer_id) {
+      await connection.query(
+        `
+        UPDATE customer
+        SET total_spent = total_spent + ?
+        WHERE id = ?
+        `,
+        [totalAmount, data.customer_id],
+      );
+
+      const [customer] = await connection.query(
+        `
+        SELECT total_spent
+        FROM customer
+        WHERE id = ?
+        `,
+        [data.customer_id],
+      );
+
+      let newType = "regular";
+      const totalSpent = Number(customer[0]?.total_spent || 0);
+
+      if (totalSpent >= 1000) {
+        newType = "vip";
+      } else if (totalSpent >= 200) {
+        newType = "member";
+      }
+
+      if (newType !== customerType) {
+        await connection.query(
+          `
+          UPDATE customer
+          SET type = ?
+          WHERE id = ?
+          `,
+          [newType, data.customer_id],
+        );
+      }
+    }
+
     await connection.commit();
+
     return {
       id: orderId,
       order_no: orderNo,
+      total_amount: totalAmount,
+      total_product_discount: totalProductDiscount,
+      total_member_discount: totalMemberDiscount,
+      total_discount: totalProductDiscount + totalMemberDiscount,
+      customer_id: data.customer_id || null,
+      discount_applied: memberDiscount,
     };
   } catch (err) {
     await connection.rollback();
@@ -124,10 +229,14 @@ exports.create = async (data, user) => {
     connection.release();
   }
 };
+
 exports.getAll = async (filter) => {
-  const { search = "" } = filter;
+  const { search = "", page = 1, limit = 10 } = filter;
+  const offset = (page - 1) * limit;
+
   let whereClause = "WHERE 1=1";
   const params = [];
+
   if (search && search.trim() !== "") {
     whereClause += `
       AND (
@@ -139,11 +248,25 @@ exports.getAll = async (filter) => {
     const keyword = `%${search}%`;
     params.push(keyword, keyword, keyword);
   }
+
+  const [countResult] = await db.query(
+    `
+    SELECT COUNT(*) as total
+    FROM orders o
+    LEFT JOIN customer c ON o.customer_id = c.id
+    LEFT JOIN user u ON o.user_id = u.id
+    ${whereClause}
+    `,
+    params,
+  );
+
   const sql = `
     SELECT
       o.id,
       o.order_no,
+      c.id AS customer_id,
       c.name AS customer_name,
+      c.type AS customer_type,
       u.name AS user_name,
       o.total_amount,
       o.paid,
@@ -154,10 +277,26 @@ exports.getAll = async (filter) => {
     LEFT JOIN user u ON o.user_id = u.id
     ${whereClause}
     ORDER BY o.id DESC
+    LIMIT ? OFFSET ?
   `;
-  const [rows] = await db.query(sql, params);
-  return rows;
+
+  const [rows] = await db.query(sql, [
+    ...params,
+    parseInt(limit),
+    parseInt(offset),
+  ]);
+
+  return {
+    data: rows,
+    pagination: {
+      total: countResult[0].total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(countResult[0].total / limit),
+    },
+  };
 };
+
 exports.getById = async (id) => {
   const [order] = await db.query(
     `
@@ -169,8 +308,12 @@ exports.getById = async (id) => {
       o.payment_method,
       o.remark,
       o.create_at,
+      c.id AS customer_id,
       c.name AS customer_name,
       c.tel AS customer_tel,
+      c.type AS customer_type,
+      c.total_spent AS customer_total_spent,
+      c.discount AS customer_discount,
       u.name AS cashier_name
     FROM orders o
     LEFT JOIN customer c
@@ -192,11 +335,14 @@ exports.getById = async (id) => {
       od.id,
       od.product_id,
       p.name AS product_name,
+      p.image AS product_image,
       od.qty,
       od.price,
-      od.discount,
-      od.total
-
+      od.discount AS product_discount,
+      od.member_discount,
+      od.discount_amount,
+      od.total,
+      (od.qty * od.price) AS subtotal
     FROM order_detail od
     INNER JOIN product p
       ON od.product_id = p.id
@@ -205,8 +351,39 @@ exports.getById = async (id) => {
     [id],
   );
 
+  const orderData = order[0];
+  const items = details;
+
+  // Calculate subtotal
+  const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+
+  // Calculate product discount
+  const totalProductDiscount = items.reduce((sum, item) => {
+    const productDiscount = parseFloat(item.product_discount) || 0;
+    const subtotalItem = parseFloat(item.subtotal) || 0;
+    return sum + ((subtotalItem * productDiscount) / 100);
+  }, 0);
+
+  // Calculate member discount
+  const totalMemberDiscount = items.reduce((sum, item) => {
+    const memberDiscount = parseFloat(item.member_discount) || 0;
+    const price = parseFloat(item.price) || 0;
+    const qty = item.qty || 0;
+    const productDiscount = parseFloat(item.product_discount) || 0;
+    const subtotalItem = price * qty;
+    const productDiscountAmount = (subtotalItem * productDiscount) / 100;
+    const afterProductDiscount = subtotalItem - productDiscountAmount;
+    return sum + ((afterProductDiscount * memberDiscount) / 100);
+  }, 0);
+
+  const totalDiscount = totalProductDiscount + totalMemberDiscount;
+
   return {
-    ...order[0],
-    items: details,
+    ...orderData,
+    subtotal: subtotal,
+    total_product_discount: totalProductDiscount,
+    total_member_discount: totalMemberDiscount,
+    total_discount: totalDiscount,
+    items: items,
   };
 };
