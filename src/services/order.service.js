@@ -9,3 +9,12 @@ exports.getAll = async (filter) => {
 exports.getById = async (id) => {
   return await orderRepository.getById(id);
 };
+exports.getSalesChart = async (query) => {
+  return await orderRepository.getSalesChart(query);
+};
+exports.getTodaySummary = async () => {
+  return await orderRepository.getTodaySummary();
+};
+exports.getTodayOrders = async () => {
+  return await orderRepository.getTodayOrders();
+};

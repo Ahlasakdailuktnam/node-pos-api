@@ -46,7 +46,7 @@ exports.getAll = async (filter) => {
     }
   }
 
-  // 📌 Get total count for pagination
+  //  Get total count for pagination
   const countSql = `
     SELECT COUNT(*) as total
     FROM product p
@@ -217,4 +217,49 @@ exports.remove = async (id) => {
     [id],
   );
   return result.affectedRows;
+};
+exports.getTopSale = async (query) => {
+  const { limit = 5, date_from, date_to } = query;
+
+  let sql = `
+    SELECT
+      p.id AS product_id,
+      p.name AS product_name,
+      p.barcode as product_code,
+      SUM(od.qty) AS total_qty,
+      SUM(od.total) AS total_sales
+    FROM order_detail od
+    INNER JOIN product p
+      ON od.product_id = p.id
+    INNER JOIN orders o
+      ON od.order_id = o.id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (date_from) {
+    sql += `
+      AND DATE(o.create_at) >= ?
+    `;
+
+    prams.push(date_from);
+  }
+  if (date_to) {
+    sql += `
+      AND DATE(o.create_at) <= ?
+    `;
+    params.push(date_to);
+  }
+  sql += `
+    GROUP BY
+      p.id,
+      p.name
+
+    ORDER BY
+      total_qty DESC
+
+    LIMIT ?
+  `;
+  params.push(Number(limit));
+  const [rows] = await db.query(sql, params);
+  return rows;
 };

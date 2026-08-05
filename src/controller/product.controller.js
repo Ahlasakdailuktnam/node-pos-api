@@ -46,7 +46,6 @@ exports.updateProduct = asyncHandler(async (req, res) => {
   const data = {
     ...req.body,
   };
-  // ប្រសិនបើមានរូបភាពថ្មីត្រូវបានបញ្ជូនមក
   if (req.file) {
     data.image = req.file.filename;
   }
@@ -70,5 +69,13 @@ exports.generateProductBarcode = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     barcode,
+  });
+});
+exports.getTopSale = asyncHandler(async (req, res) => {
+  const data = await productService.getTopSale(req.query);
+  res.json({
+    success: true,
+    message: "Get top sale products successfully",
+    data,
   });
 });

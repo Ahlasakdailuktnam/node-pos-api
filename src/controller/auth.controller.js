@@ -6,13 +6,19 @@ const keyToken = "LWEJROI32209";
 exports.getList = async (req, res) => {
   let sql = `
     SELECT 
-      u.id, 
-      u.name, 
-      u.username,
-      u.is_active,
-      r.name AS role_name
+    u.id,
+    u.name,
+    u.username,
+    u.is_active,
+    r.name AS role_name,
+    u.create_at,
+    cb.name AS create_by_name
     FROM user u
-    INNER JOIN role r ON u.role_id = r.id
+    INNER JOIN role r
+    ON u.role_id = r.id
+     LEFT JOIN user cb
+    ON u.create_by = cb.id
+    ORDER BY u.id DESC;
   `;
 
   const [list] = await db.query(sql);

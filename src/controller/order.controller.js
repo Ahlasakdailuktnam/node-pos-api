@@ -8,12 +8,11 @@ exports.create = asyncHandler(async (req, res) => {
     data: result,
   });
 });
-// order.controller.js
 exports.getAll = asyncHandler(async (req, res) => {
   const filter = {
     search: req.query.search || "",
-    page: parseInt(req.query.page) || 1,    // ← បន្ថែម
-    limit: parseInt(req.query.limit) || 10, // ← បន្ថែម
+    page: parseInt(req.query.page) || 1,   
+    limit: parseInt(req.query.limit) || 10,
   };
   const data = await orderService.getAll(filter);
   res.json({
@@ -33,4 +32,29 @@ exports.getById = asyncHandler(async (req, res) => {
     success: true,
     data,
   });
+});
+exports.getSalesChart = asyncHandler(async (req, res) => {
+  const data = await orderService.getSalesChart(req.query);
+  res.json({
+    success: true,
+    message: "Get sales chart successfully",
+    data,
+  });
+});
+exports.getTodaySummary = asyncHandler(async (req, res) => {
+  const data = await orderService.getTodaySummary();
+  res.json({
+    success: true,
+    message: "Get today's sales summary successfully",
+    data,
+  });
+});
+exports.getTodayOrders = asyncHandler(async (req, res) => {
+  const data = await orderService.getTodayOrders();
+  res.json({
+    success: true,
+    message: "Get today's orders successfully",
+    data
+  });
+
 });

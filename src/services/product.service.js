@@ -15,8 +15,8 @@ exports.getProductById = async (id) => {
   return product;
 };
 
-exports.createProduct = async (data,user) => {
-  return await productRepository.create(data,user);
+exports.createProduct = async (data, user) => {
+  return await productRepository.create(data, user);
 };
 
 exports.updateProduct = async (id, data) => {
@@ -65,4 +65,7 @@ exports.deleteProduct = async (id) => {
   }
   await productRepository.remove(id);
   return true;
+};
+exports.getTopSale = async (query) => {
+  return await productRepository.getTopSale(query);
 };

@@ -5,13 +5,16 @@ const {
   updateProduct,
   deleteProduct,
   generateProductBarcode,
+  getTopSale,
 } = require("../controller/product.controller");
 
 const { validate_token } = require("../controller/auth.controller");
 const upload = require("../middleware/upload.middleware");
+const { checkPermission } = require("../middleware/checkPermission");
 
 module.exports = (app) => {
   app.get("/api/product", validate_token(), getProducts);
+  app.get("/api/product/top-sale", validate_token(), getTopSale);
   app.get(
     "/api/product/generate-barcode",
     validate_token(),
@@ -33,5 +36,10 @@ module.exports = (app) => {
     updateProduct,
   );
 
-  app.delete("/api/product/:id", validate_token(), deleteProduct);
+  app.delete(
+    "/api/product/:id",
+    validate_token(),
+    checkPermission("product.delete"),
+    deleteProduct,
+  );
 };

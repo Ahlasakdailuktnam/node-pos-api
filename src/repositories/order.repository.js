@@ -88,8 +88,10 @@ exports.create = async (data, user) => {
       const productDiscount = parseFloat(item.discount) || 0;
       const productDiscountAmount = (subtotal * productDiscount) / 100;
       const afterProductDiscount = subtotal - productDiscountAmount;
-      const memberDiscountAmount = (afterProductDiscount * memberDiscount) / 100;
-      const finalTotal = subtotal - productDiscountAmount - memberDiscountAmount;
+      const memberDiscountAmount =
+        (afterProductDiscount * memberDiscount) / 100;
+      const finalTotal =
+        subtotal - productDiscountAmount - memberDiscountAmount;
 
       totalAmount += finalTotal;
       totalProductDiscount += productDiscountAmount;
@@ -361,7 +363,7 @@ exports.getById = async (id) => {
   const totalProductDiscount = items.reduce((sum, item) => {
     const productDiscount = parseFloat(item.product_discount) || 0;
     const subtotalItem = parseFloat(item.subtotal) || 0;
-    return sum + ((subtotalItem * productDiscount) / 100);
+    return sum + (subtotalItem * productDiscount) / 100;
   }, 0);
 
   // Calculate member discount
@@ -373,11 +375,9 @@ exports.getById = async (id) => {
     const subtotalItem = price * qty;
     const productDiscountAmount = (subtotalItem * productDiscount) / 100;
     const afterProductDiscount = subtotalItem - productDiscountAmount;
-    return sum + ((afterProductDiscount * memberDiscount) / 100);
+    return sum + (afterProductDiscount * memberDiscount) / 100;
   }, 0);
-
   const totalDiscount = totalProductDiscount + totalMemberDiscount;
-
   return {
     ...orderData,
     subtotal: subtotal,
@@ -386,4 +386,108 @@ exports.getById = async (id) => {
     total_discount: totalDiscount,
     items: items,
   };
+};
+exports.getSalesChart = async (query) => {
+  const {
+    group_by = "month",
+    year = new Date().getFullYear(),
+    month,
+    date_from,
+    date_to,
+  } = query;
+  let groupSelect = "";
+  let groupBy = "";
+  let orderBy = "";
+  switch (group_by) {
+    case "day":
+      groupSelect = `
+        DAY(o.create_at) AS label,
+        DATE(o.create_at) AS full_date
+      `;
+      groupBy = `DATE(o.create_at)`;
+      orderBy = `DATE(o.create_at)`;
+      break;
+    case "year":
+      groupSelect = `
+        YEAR(o.create_at) AS label
+      `;
+      groupBy = `YEAR(o.create_at)`;
+      orderBy = `YEAR(o.create_at)`;
+      break;
+    default: // month
+      groupSelect = `
+        MONTH(o.create_at) AS month,
+        DATE_FORMAT(o.create_at,'%b') AS label
+      `;
+      groupBy = `MONTH(o.create_at)`;
+      orderBy = `MONTH(o.create_at)`;
+      break;
+  }
+  let sql = `
+    SELECT
+      ${groupSelect},
+      COUNT(*) AS total_orders,
+      SUM(o.total_amount) AS total_sales
+    FROM orders o
+    WHERE 1 = 1
+  `;
+  const params = [];
+  if (year) {
+    sql += ` AND YEAR(o.create_at) = ?`;
+    params.push(year);
+  }
+  if (month) {
+    sql += ` AND MONTH(o.create_at) = ?`;
+    params.push(month);
+  }
+  if (date_from) {
+    sql += ` AND DATE(o.create_at) >= ?`;
+    params.push(date_from);
+  }
+  if (date_to) {
+    sql += ` AND DATE(o.create_at) <= ?`;
+    params.push(date_to);
+  }
+  sql += `
+    GROUP BY ${groupBy}
+    ORDER BY ${orderBy}
+  `;
+  const [rows] = await db.query(sql, params);
+  return rows;
+};
+exports.getTodaySummary = async () => {
+  const sql = `
+    SELECT
+    COUNT(*) AS total_orders,
+    IFNULL(SUM(total_amount),0) AS total_sales,
+    IFNULL(SUM(paid),0) AS total_paid,
+    IFNULL(SUM(total_amount - paid),0) AS total_due,
+    IFNULL(AVG(total_amount),0) AS average_order
+    FROM orders
+    WHERE DATE(create_at)=CURDATE();
+  `;
+  const [rows] = await db.query(sql);
+  return rows[0];
+};
+exports.getTodayOrders = async () => {
+  const sql = `
+    SELECT
+      o.id,
+      o.order_no,
+      c.name AS customer_name,
+      u.name AS cashier_name,
+      o.total_amount,
+      o.paid,
+      o.payment_method,
+      o.create_at
+    FROM orders o
+    LEFT JOIN customer c
+      ON o.customer_id = c.id
+    LEFT JOIN user u
+      ON o.user_id = u.id
+    WHERE DATE(o.create_at) = CURDATE()
+    ORDER BY o.create_at DESC
+  `;
+  const [rows] = await db.query(sql);
+  return rows;
 };
