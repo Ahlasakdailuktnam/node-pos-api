@@ -41,7 +41,6 @@ exports.createProduct = asyncHandler(async (req, res) => {
   });
 });
 
-// ពេល Update ត្រូវចាប់យក file ដូចពេល Create ដែរ
 exports.updateProduct = asyncHandler(async (req, res) => {
   const data = {
     ...req.body,

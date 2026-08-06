@@ -1,223 +1,105 @@
-const { db } = require("../util/helper");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const keyToken = "LWEJROI32209";
+const authService = require("../services/auth.service");
 
+//  GET ALL USERS 
 exports.getList = async (req, res) => {
-  let sql = `
-    SELECT 
-    u.id,
-    u.name,
-    u.username,
-    u.is_active,
-    r.name AS role_name,
-    u.create_at,
-    cb.name AS create_by_name
-    FROM user u
-    INNER JOIN role r
-    ON u.role_id = r.id
-     LEFT JOIN user cb
-    ON u.create_by = cb.id
-    ORDER BY u.id DESC;
-  `;
+  try {
+    const list = await authService.getList();
 
-  const [list] = await db.query(sql);
-
-  res.json({
-    list: list,
-  });
+    res.json({
+      success: true,
+      message: "Get users successfully",
+      data: list,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
 };
+
+//  REGISTER 
 exports.register = async (req, res) => {
   try {
-    let password = bcrypt.hashSync(req.body.password, 10);
-
-    let sql = `
-      INSERT INTO user
-      (
-        role_id,
-        name,
-        username,
-        password,
-        is_active,
-        create_by
-      )
-      VALUES
-      (
-        :role_id,
-        :name,
-        :username,
-        :password,
-        :is_active,
-        :create_by
-      )
-    `;
-
-    let [data] = await db.query(sql, {
-      role_id: req.body.role_id,
-      name: req.body.name,
-      username: req.body.username,
-      password: password,
-      is_active: req.body.is_active,
-      create_by: req.body.create_by,
+    const result = await authService.register({
+      ...req.body,
+      create_by: req.current_id,
     });
 
-    res.json({
-      message: "Register success",
-      data: data,
+    res.status(201).json({
+      success: true,
+      message: result.message,
+      data: {
+        id: result.id,
+      },
     });
   } catch (err) {
-    res.status(500).json({
-      error: err.message,
+    res.status(400).json({
+      success: false,
+      message: err.message,
     });
   }
 };
 
-// ================= LOGIN =================
+//  LOGIN 
 exports.login = async (req, res) => {
   try {
-    let { username, password } = req.body;
-
-    let sql = `
-      SELECT *
-      FROM user
-      WHERE username=:username
-    `;
-
-    let [data] = await db.query(sql, {
-      username: username,
-    });
-
-    // username not found
-    if (data.length === 0) {
-      return res.json({
-        error: {
-          username: "Username not found",
-        },
-      });
-    }
-
-    let user = data[0];
-
-    // compare password
-    let isCorrectPw = bcrypt.compareSync(password, user.password);
-
-    // password incorrect
-    if (!isCorrectPw) {
-      return res.json({
-        error: {
-          password: "Password not match",
-        },
-      });
-    }
-
-    // remove password
-    delete user.password;
-
-    // create token
-    const access_token = await getAccessToken(user);
+    const result = await authService.login(
+      req.body.username,
+      req.body.password
+    );
 
     res.json({
+      success: true,
       message: "Login success",
-      data: user,
-      access_token: access_token,
+      data: result.user,
+      access_token: result.access_token,
     });
   } catch (err) {
-    res.status(500).json({
-      error: err.message,
+    res.status(400).json({
+      success: false,
+      message: err.message,
     });
   }
 };
 
-// ================= PROFILE =================
+//  PROFILE 
 exports.getProfile = async (req, res) => {
   try {
-    let sql = `
-      SELECT 
-        id,
-        role_id,
-        name,
-        username,
-        is_active,
-        create_by
-      FROM user
-      WHERE id=:id
-    `;
-
-    let [data] = await db.query(sql, {
-      id: req.current_id,
-    });
-
-    if (data.length === 0) {
-      return res.json({
-        error: "User not found",
-      });
-    }
+    const user = await authService.getProfile(req.current_id);
 
     res.json({
+      success: true,
       message: "Profile",
-      data: data[0],
+      data: user,
     });
   } catch (err) {
-    res.status(500).json({
-      error: err.message,
+    res.status(404).json({
+      success: false,
+      message: err.message,
     });
   }
 };
 
-// ================= CREATE TOKEN =================
-const getAccessToken = async (user) => {
-  const data = {
-    id: user.id,
-    name: user.name,
-    username: user.username,
-  };
+//  UPDATE STATUS 
+exports.updateStatus = async (req, res) => {
+  try {
+    const result = await authService.updateStatus(
+      req.params.id,
+      req.body.is_active
+    );
 
-  const access_token = jwt.sign({ data: data }, keyToken, { expiresIn: "7d" });
-
-  return access_token;
-};
-
-// ================= VALIDATE TOKEN =================
-exports.validate_token = () => {
-  return (req, res, next) => {
-    // get authorization header
-    const authorization = req.headers.authorization;
-
-    let token_from_client = null;
-
-    // check authorization
-    if (authorization != null && authorization != "") {
-      // Bearer xxxxxxxxx
-      token_from_client = authorization.split(" ");
-
-      // get token only
-      token_from_client = token_from_client[1];
-    }
-
-    // token missing
-    if (token_from_client == null) {
-      return res.status(401).send({
-        message: "Unauthorized",
-      });
-    }
-
-    // verify token
-    jwt.verify(token_from_client, keyToken, (error, result) => {
-      // token invalid
-      if (error) {
-        return res.status(401).send({
-          message: "Unauthorized",
-          error: error,
-        });
-      }
-
-      // save user data in request
-      req.user = result;
-      req.current_id = result.data.id;
-      req.current_name = result.data.name;
-      req.current_username = result.data.username;
-
-      next();
+    res.json({
+      success: true,
+      message: result.message,
     });
-  };
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
 };
+
+//  VALIDATE TOKEN 
+exports.validate_token = authService.validateToken;
